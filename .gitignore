@@ -1,0 +1,4 @@
+db.js
+/node_modulesdb.
+
+# este es un archivo especial cuando se maneja por githud para impedir que tenga unos archivos que no se desea compartir este se llama el archivo que no deseamos subir como por ejemplo db o /node_modules
