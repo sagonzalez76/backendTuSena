@@ -216,7 +216,7 @@ export const create_producto = async (req, res) => {
     fs.unlinkSync(path + "." + mimetype.split("/")[1]);
 
     res.status(200).json({
-      message: 'Se creó el producto correctamente.',
+      message: "Se creó el producto correctamente.",
       producto: productoCompleto,
     });
   } catch (error) {
@@ -405,17 +405,11 @@ export const get_producto_id = async (req, res) => {
       })),
     }));
 
-    if (producto.length === 0) {
-      return res.status(404).json({ success: false, message: "No se encontró el producto" });
-    }
-
-    const formattedProducto = {
-      ...producto[0],
-      funcionario_fk: producto[0].funcionario_fk.map(Number),
-      programa_fk: producto[0].programa_fk.map(Number),
-    };
-
-    res.status(200).json({ success: true, message: "Producto encontrado", producto: formattedProducto });
+    res.status(200).json({
+      success: true,
+      message: "Listado de productos",
+      productos: result,
+    });
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
@@ -424,30 +418,14 @@ export const get_producto_id = async (req, res) => {
 
 export const get_funcionario_identificacion = async (req, res) => {
   const funcionarioiden = req.params.funcionario_iden;
+  console.log(funcionarioiden);
   try {
     const producto = await sequelize.query(
-
-      // `SELECT productos.*, funcionario.*, proyecto.*, semilleros.*, programa.*
-      // FROM productos
-      // JOIN funcionario_productos 
-      // ON productos.producto_id = funcionario_productos.producto_fk
-      // JOIN funcionario
-      // ON funcionario.funcionario_id = funcionario_productos.funcionario_fk
-      // JOIN semilleros
-      // ON semilleros.semillero_id = productos.semillero_fk
-      // JOIN proyecto
-      // ON proyecto.proyecto_id = productos.proyecto_fk
-      // JOIN producto_programa
-      // ON producto_programa.productos_fk = productos.producto_id
-      // JOIN programa
-      // ON programa.programa_id = producto_programa.programa_fk
-      // WHERE funcionario.funcionario_iden = :funcionarioiden`,
-
-
       `SELECT productos.*, funcionario.*, proyecto.*, semilleros.*, programa.*
       FROM productos
   
       JOIN funcionario_productos
+  
   
       ON productos.producto_id = funcionario_productos.producto_fk
       JOIN funcionario
@@ -721,40 +699,27 @@ export const searchProducts = async (req, res, next) => {
     console.log(query);
 
     const productos = await sequelize.query(
-      `SELECT productos.*, funcionario.*, proyecto.*, semilleros.*, programa.*
+      `SELECT productos.*, funcionario.*,proyecto.*,semilleros.*,programa.*
       FROM productos
-  
-      JOIN (
-      SELECT DISTINCT ON (producto_fk) *
-      FROM funcionario_productos
-      ) AS funcionario_productos
-  
-  
+      JOIN funcionario_productos 
       ON productos.producto_id = funcionario_productos.producto_fk
       JOIN funcionario
       ON funcionario.funcionario_id = funcionario_productos.funcionario_fk
-      JOIN semilleros
+      JOIN  semilleros
       ON semilleros.semillero_id = productos.semillero_fk
-      JOIN proyecto
+      JOIN  proyecto
       ON proyecto.proyecto_id = productos.proyecto_fk
-  
-      JOIN (
-        SELECT DISTINCT ON (productos_fk) *
-        FROM producto_programa
-        ) AS producto_programa
-  
-  
-  
+      JOIN producto_programa
       ON producto_programa.productos_fk = productos.producto_id
       JOIN programa
       ON programa.programa_id = producto_programa.programa_fk
-    WHERE LOWER(productos.producto_titulo) LIKE LOWER(:query)`,
+    WHERE productos.producto_titulo LIKE :query`,
       {
         replacements: { query: `%${query}%` },
         type: sequelize.QueryTypes.SELECT,
       }
     );
-    // console.log(productos[0].producto_titulo, productos[1].producto_titulo,);
+    console.log(productos);
     res.status(200).json({ productos });
   } catch (error) {
     next(error);
@@ -868,13 +833,12 @@ export const aplicarFiltros = async (req, res) => {
 };
 
 export const aplicarFiltrosGraficas = async (req, res) => {
-
-const filtro = req.query.filtroSelect ?? 'producto_tipo'
-const semilleroNombre = req.query.semillero_nombre ?? [];
-const productosSubtipos = req.query.producto_subtipo ?? [];
-const buscarAno = req.query.productos_ano ?? [];
-const buscarProyecto = req.query.proyectos_nombre ?? [];
-const buscarPrograma = req.query.programas_nombre ?? [];
+  const filtro = req.query.filtroSelect ?? "producto_tipo";
+  const semilleroNombre = req.query.semillero_nombre ?? [];
+  const productosSubtipos = req.query.producto_subtipo ?? [];
+  const buscarAno = req.query.productos_ano ?? [];
+  const buscarProyecto = req.query.proyectos_nombre ?? [];
+  const buscarPrograma = req.query.programas_nombre ?? [];
 
   const filtrosSemillero = semilleroNombre.map((nombre) => `%${nombre}%`);
   const filtrosProducto = productosSubtipos.map((subtipo) => `%${subtipo}%`);
@@ -889,31 +853,39 @@ const buscarPrograma = req.query.programas_nombre ?? [];
     // Crea una variable para almacenar los valores de los filtros
     let valoresFiltros = {};
 
-  // Verificar si se ha seleccionado algún filtro y agregar la condición correspondiente
-  if (filtrosSemillero.length > 0) {
-    condiciones.push(`semilleros.semillero_nombre LIKE ANY(ARRAY[:filtrosSemillero])`);
-    valoresFiltros.filtrosSemillero = filtrosSemillero;
-  }
+    // Verificar si se ha seleccionado algún filtro y agregar la condición correspondiente
+    if (filtrosSemillero.length > 0) {
+      condiciones.push(
+        `semilleros.semillero_nombre LIKE ANY(ARRAY[:filtrosSemillero])`
+      );
+      valoresFiltros.filtrosSemillero = filtrosSemillero;
+    }
 
-  if (filtrosProducto.length > 0) {
-    condiciones.push(`productos.producto_subtipo LIKE ANY(ARRAY[:filtrosProducto])`);
-    valoresFiltros.filtrosProducto = filtrosProducto;
-  }
+    if (filtrosProducto.length > 0) {
+      condiciones.push(
+        `productos.producto_subtipo LIKE ANY(ARRAY[:filtrosProducto])`
+      );
+      valoresFiltros.filtrosProducto = filtrosProducto;
+    }
 
     if (filtroAnos.length > 0) {
       condiciones.push(`productos.producto_ano LIKE ANY(ARRAY[:filtroAnos])`);
       valoresFiltros.filtroAnos = filtroAnos;
     }
 
-  if (filtroProyectos.length > 0) {
-    condiciones.push(`proyecto.proyecto_nombre LIKE ANY(ARRAY[:filtroProyectos])`);
-    valoresFiltros.filtroProyectos = filtroProyectos;
-  }
+    if (filtroProyectos.length > 0) {
+      condiciones.push(
+        `proyecto.proyecto_nombre LIKE ANY(ARRAY[:filtroProyectos])`
+      );
+      valoresFiltros.filtroProyectos = filtroProyectos;
+    }
 
-  if (filtroProgramas.length > 0) {
-    condiciones.push(`programa.programa_nombre LIKE ANY(ARRAY[:filtroProgramas])`);
-    valoresFiltros.filtroProgramas = filtroProgramas;
-  }
+    if (filtroProgramas.length > 0) {
+      condiciones.push(
+        `programa.programa_nombre LIKE ANY(ARRAY[:filtroProgramas])`
+      );
+      valoresFiltros.filtroProgramas = filtroProgramas;
+    }
 
     // Crear la consulta SQL base
     let consultaSQL = `
@@ -938,10 +910,10 @@ const buscarPrograma = req.query.programas_nombre ?? [];
     JOIN programa
     ON programa.programa_id = producto_programa.programa_fk`;
 
-  // Agregar las condiciones de filtrado a la consulta si existen
-  if (condiciones.length > 0) {
-    consultaSQL += ` WHERE ${condiciones.join(' AND ')}`;
-  }
+    // Agregar las condiciones de filtrado a la consulta si existen
+    if (condiciones.length > 0) {
+      consultaSQL += ` WHERE ${condiciones.join(" AND ")}`;
+    }
 
     // Agregar la cláusula GROUP BY a la consulta
     consultaSQL += ` GROUP BY productos.${filtro}`;
