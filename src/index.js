@@ -9,7 +9,7 @@ async function main(){
     try {
         await sequelize.authenticate();
         // es la autenticacion de la base de datos con el achivo indexedDB.js
-        await sequelize.sync({force:false})
+        await sequelize.sync({force:true})
         // la promesa de sequelize.sync es para volver a reestructurar los modelos cambiando el false a true
         app.listen(PORT)
         // app.listen( es el puerto de escucha con el proycto que se conectara para poder iniciar el servicio del backend se puede cambiar el numero de puerto por defecto es 3000)
