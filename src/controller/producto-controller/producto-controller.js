@@ -227,7 +227,6 @@ export const create_producto = async (req, res) => {
 
 export const update_producto = async (req, res) => {
   const {
-    producto_id,
     producto_imagen,
     producto_titulo,
     producto_ano,
@@ -237,8 +236,15 @@ export const update_producto = async (req, res) => {
     proyecto_fk,
     semillero_fk,
     funcionario_fk,
-    programa_fk,
+    programa_fk
   } = req.body;
+
+  const { producto_id } = req.params; // Obtén producto_id de los parámetros
+
+  // Verifica si producto_id es un valor válido
+  if (!producto_id) {
+    return res.status(400).json({ message: "El parámetro 'producto_id' es requerido." });
+  }
 
   try {
     await producto.update(
@@ -251,7 +257,6 @@ export const update_producto = async (req, res) => {
         producto_url,
         proyecto_fk,
         semillero_fk,
-        // funcionario_fk,
       },
       {
         where: {
@@ -260,35 +265,69 @@ export const update_producto = async (req, res) => {
       }
     );
 
-    await funcionario_producto.update(
-      {
-        funcionario_fk,
-      },
-      {
+    // Actualizar funcionario_fk
+    if (funcionario_fk && Array.isArray(funcionario_fk)) {
+      await funcionario_producto.destroy({
         where: {
           producto_fk: producto_id,
+          funcionario_fk: { [Op.notIn]: funcionario_fk }, // Eliminar las relaciones que no están en el nuevo conjunto de IDs
         },
-      }
-    );
+      });
 
-    await producto_programa.update(
-      {
-        programa_fk,
-      },
-      {
+      const existingFuncionarios = await funcionario_producto.findAll({
+        where: {
+          producto_fk: producto_id,
+          funcionario_fk: { [Op.in]: funcionario_fk }, // Obtener las relaciones existentes con los nuevos IDs
+        },
+      });
+
+      const existingFuncionariosIds = existingFuncionarios.map(funcionario => funcionario.funcionario_fk);
+
+      const newFuncionariosIds = funcionario_fk.filter(id => !existingFuncionariosIds.includes(id));
+
+      for (const funcionarioId of newFuncionariosIds) {
+        await funcionario_producto.create({
+          funcionario_fk: funcionarioId,
+          producto_fk: producto_id,
+        });
+      }
+    }
+
+    // Actualizar programa_fk
+    if (programa_fk && Array.isArray(programa_fk)) {
+      await producto_programa.destroy({
         where: {
           productos_fk: producto_id,
+          programa_fk: { [Op.notIn]: programa_fk }, // Eliminar las relaciones que no están en el nuevo conjunto de IDs
         },
+      });
+
+      const existingProgramas = await producto_programa.findAll({
+        where: {
+          productos_fk: producto_id,
+          programa_fk: { [Op.in]: programa_fk }, // Obtener las relaciones existentes con los nuevos IDs
+        },
+      });
+
+      const existingProgramasIds = existingProgramas.map(programa => programa.programa_fk);
+
+      const newProgramasIds = programa_fk.filter(id => !existingProgramasIds.includes(id));
+
+      for (const programaId of newProgramasIds) {
+        await producto_programa.create({
+          programa_fk: programaId,
+          productos_fk: producto_id,
+        });
       }
-    );
+    }
 
     const updatedProducto = await producto.findByPk(producto_id);
-    const updatedFuncionarioProducto = await funcionario_producto.findOne({
+    const updatedFuncionarioProducto = await funcionario_producto.findAll({
       where: {
         producto_fk: producto_id,
       },
     });
-    const updatedProductoPrograma = await producto_programa.findOne({
+    const updatedProductoPrograma = await producto_programa.findAll({
       where: {
         productos_fk: producto_id,
       },
@@ -305,6 +344,12 @@ export const update_producto = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+
+
+
+
+
+
 
 export const delete_producto = async (req, res) => {
   const { producto_id } = req.params;
