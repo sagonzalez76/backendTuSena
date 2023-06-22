@@ -699,21 +699,34 @@ export const searchProducts = async (req, res, next) => {
     console.log(query);
 
     const productos = await sequelize.query(
-      `SELECT productos.*, funcionario.*,proyecto.*,semilleros.*,programa.*
+      `SELECT productos.*, funcionario.*, proyecto.*, semilleros.*, programa.*
       FROM productos
-      JOIN funcionario_productos 
+  
+      JOIN (
+      SELECT DISTINCT ON (producto_fk) *
+      FROM funcionario_productos
+      ) AS funcionario_productos
+  
+  
       ON productos.producto_id = funcionario_productos.producto_fk
       JOIN funcionario
       ON funcionario.funcionario_id = funcionario_productos.funcionario_fk
-      JOIN  semilleros
+      JOIN semilleros
       ON semilleros.semillero_id = productos.semillero_fk
-      JOIN  proyecto
+      JOIN proyecto
       ON proyecto.proyecto_id = productos.proyecto_fk
-      JOIN producto_programa
+  
+      JOIN (
+        SELECT DISTINCT ON (productos_fk) *
+        FROM producto_programa
+        ) AS producto_programa
+  
+  
+  
       ON producto_programa.productos_fk = productos.producto_id
       JOIN programa
       ON programa.programa_id = producto_programa.programa_fk
-    WHERE productos.producto_titulo LIKE :query`,
+    WHERE LOWER(productos.producto_titulo) LIKE LOWER(:query)`,
       {
         replacements: { query: `%${query}%` },
         type: sequelize.QueryTypes.SELECT,
